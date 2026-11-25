@@ -17,6 +17,9 @@ const app = await electron.launch({ executablePath: exe, env: { ...process.env, 
 let ok = false;
 try {
   const page = await app.firstWindow();
+  const consoleErrors = [];
+  page.on('console', (m) => m.type() === 'error' && consoleErrors.push(m.text()));
+  page.on('pageerror', (e) => consoleErrors.push(String(e)));
   await page.getByLabel('Email or username').waitFor({ timeout: 30000 });
   const server = (await page.getByText(/^Server: /).innerText()).replace('Server: ', '');
   console.log(`[smoke] sign-in screen up, server ${server}`);
@@ -41,6 +44,7 @@ try {
     await page.getByRole('button', { name: 'Sign out' }).click();
     await page.getByLabel('Email or username').waitFor();
   }
+  if (consoleErrors.length) throw new Error(`renderer console errors:\n${consoleErrors.join('\n')}`);
   ok = true;
 } catch (e) {
   console.error('[smoke] FAIL', e);
