@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-electron/
+release/
+build-out*/
+e2e/shots/
+*.log
+.env
+.env.*
+*.local.md

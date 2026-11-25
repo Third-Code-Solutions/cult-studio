@@ -1,0 +1,87 @@
+{
+  "name": "cult-live-studio",
+  "productName": "CULT Live Studio",
+  "private": true,
+  "version": "0.1.0",
+  "description": "CULT Live Studio: desktop streaming studio for CULT creators",
+  "author": "CULT",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "build:main": "tsc -p tsconfig.node.json && node scripts/build-config.mjs",
+    "build:renderer": "vite build",
+    "build": "npm run build:main && npm run build:renderer",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.json --noEmit",
+    "start": "npm run build && electron .",
+    "test:e2e": "npm run build && node e2e/studio.e2e.mjs",
+    "dist": "npm run dist:win",
+    "dist:win": "npm run build && node scripts/build-config.mjs --release && electron-builder --win nsis --publish never",
+    "dist:mac": "npm run build && node scripts/build-config.mjs --release && electron-builder --mac dmg --universal --publish never"
+  },
+  "dependencies": {
+    "@sentry/electron": "^8.4.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "45.5.0",
+    "electron-builder": "26.18.0",
+    "playwright": "1.65.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.6"
+  },
+  "build": {
+    "appId": "dev.cult.livestudio",
+    "productName": "CULT Live Studio",
+    "artifactName": "CULT-Live-Studio-Setup.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**",
+      "dist-electron/**",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "CULT Live Studio"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.video",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "notarize": false,
+      "extendInfo": {
+        "NSCameraUsageDescription": "CULT Live Studio uses your camera when you add it as a source to your LIVE.",
+        "NSMicrophoneUsageDescription": "CULT Live Studio uses your microphone for your LIVE audio.",
+        "NSScreenCaptureUsageDescription": "CULT Live Studio captures the screen or window you choose to show on your LIVE."
+      }
+    },
+    "dmg": {
+      "artifactName": "CULT-Live-Studio.${ext}"
+    }
+  }
+}

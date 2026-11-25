@@ -1,0 +1,94 @@
+name: build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+# Public values only: the API/web addresses and the Sentry DSN (a public key) are baked into the app.
+env:
+  VITE_API_BASE: https://cult-api.up.railway.app
+  VITE_STUDIO_URL: https://cult-live.vercel.app/studio
+  VITE_SENTRY_DSN: https://10f8233dd8079c65093025f8a745b3ac@o4512451278274560.ingest.us.sentry.io/4512493055639552
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      # Universal (arm64 + x64) dmg, ad-hoc signed (Apple silicon refuses unsigned arm64 code).
+      # TODO(owner, needs a paid Apple Developer account): notarize so Gatekeeper opens it without a warning.
+      #   1. Secrets: CSC_LINK (base64 .p12 of the "Developer ID Application" cert), CSC_KEY_PASSWORD,
+      #      APPLE_API_KEY (path to the AuthKey_XXXX.p8 written from a secret), APPLE_API_KEY_ID, APPLE_API_ISSUER
+      #      (or APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID).
+      #   2. package.json build.mac: delete "identity": "-", set "hardenedRuntime": true and "notarize": true
+      #      (build/entitlements.mac.plist already carries the JIT + camera/mic entitlements hardened runtime needs).
+      #   3. Pass those secrets as env on this step.
+      - run: npm run dist:mac
+      - name: Verify dmg (signature, architectures, launch)
+        run: |
+          set -euo pipefail
+          hdiutil attach release/CULT-Live-Studio.dmg -nobrowse -readonly -mountpoint /tmp/cult
+          APP="/tmp/cult/CULT Live Studio.app"
+          BIN="$APP/Contents/MacOS/CULT Live Studio"
+          codesign -dv "$APP" 2>&1 | tee /tmp/codesign.txt
+          grep -q 'Signature=adhoc' /tmp/codesign.txt
+          codesign --verify --deep --strict "$APP"
+          archs=$(lipo -archs "$BIN"); echo "archs: $archs"
+          [[ " $archs " == *" x86_64 "* && " $archs " == *" arm64 "* ]]
+          /usr/libexec/PlistBuddy -c 'Print :NSCameraUsageDescription' "$APP/Contents/Info.plist"
+          # Plain launch (the user's path): must still be running after 10 s.
+          CULT_USER_DATA=/tmp/cult-profile "$BIN" & pid=$!
+          sleep 10
+          kill -0 "$pid"
+          kill "$pid"; wait "$pid" || true
+          # Renderer check: sign-in screen against the production API.
+          APP_EXE="$BIN" EXPECT_SERVER=cult-api.up.railway.app SHOTS=/tmp/cult-shots node e2e/packaged.smoke.mjs
+          hdiutil detach /tmp/cult
+      - run: shasum -a 256 release/CULT-Live-Studio.dmg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CULT-Live-Studio-mac
+          path: release/CULT-Live-Studio.dmg
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-mac
+          path: /tmp/cult-shots
+          if-no-files-found: ignore
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run dist:win
+      - name: Smoke test (sign-in screen against the production API)
+        shell: bash
+        run: APP_EXE="release/win-unpacked/CULT Live Studio.exe" EXPECT_SERVER=cult-api.up.railway.app SHOTS=smoke node e2e/packaged.smoke.mjs
+      - shell: bash
+        run: sha256sum release/CULT-Live-Studio-Setup.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CULT-Live-Studio-win
+          path: release/CULT-Live-Studio-Setup.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-win
+          path: smoke
+          if-no-files-found: ignore
