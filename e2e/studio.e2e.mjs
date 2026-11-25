@@ -105,6 +105,30 @@ try {
   await page.waitForTimeout(500);
   const rows = await page.locator('.panel.left .row .name').allInnerTexts();
   check('sources listed', ['demo-slots.jpg', 'Sunday spin session', 'Goal bar', 'Chatbox'].every((n) => rows.includes(n)), rows.join(', '));
+  // Fill on a landscape camera makes its box far wider than the portrait canvas: it must stay clipped to the stage and
+  // never cover the side panels (the demo image is 9:16 like the canvas, so its Fill can't overflow).
+  await addSource('Camera');
+  await page.getByRole('dialog').getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('dialog').waitFor({ state: 'detached', timeout: 10000 });
+  await page.locator('.props').getByRole('button', { name: 'Fill' }).click(); // the new source is selected
+  await page.waitForTimeout(300);
+  const spill = await page.evaluate(() => {
+    const body = document.querySelector('.stage-body').getBoundingClientRect();
+    let n = 0;
+    for (let x = 2; x < innerWidth; x += 16) for (let y = 2; y < innerHeight; y += 16) {
+      const outside = x < body.left || x > body.right || y < body.top || y > body.bottom;
+      if (outside && document.elementFromPoint(x, y)?.closest('.box')) n++;
+    }
+    return n;
+  });
+  check('Fill source stays inside the stage', spill === 0, `${spill} hit points outside the stage`);
+  const addHit = await page.locator('.panel.left').getByRole('button', { name: 'Add source' }).evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+  });
+  check('Add source still clickable with a Fill source', addHit);
+  await shot('04b-camera-fill');
+  await page.locator('.props').getByRole('button', { name: 'Fit' }).click();
   // Drag the text box down a bit (selection + move)
   const box = page.getByLabel('Sunday spin session', { exact: true }).last();
   const bb = await box.boundingBox();

@@ -189,7 +189,8 @@ input[type='range'] { accent-color: var(--text); width: 84px; height: 16px; }
 .stage { position: relative; flex: 1; background: var(--stage); min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .stage-bar { height: 40px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-bottom: 1px solid var(--line); color: var(--muted); }
 .stage-bar .sp { flex: 1; }
-.stage-body { flex: 1; min-height: 0; display: flex; gap: 20px; align-items: center; justify-content: center; padding: 16px 20px 20px; }
+/* overflow: a source boxed larger than its canvas (Fill) must never paint over or block the side panels and bars */
+.stage-body { flex: 1; min-height: 0; display: flex; gap: 20px; align-items: center; justify-content: center; padding: 16px 20px 20px; overflow: hidden; }
 .screen { display: flex; flex-direction: column; gap: 8px; align-items: center; min-width: 0; min-height: 0; height: 100%; }
 .screen-cap { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); height: 20px; }
 .screen-frame { flex: 1; min-height: 0; width: 100%; display: grid; place-items: center; }
