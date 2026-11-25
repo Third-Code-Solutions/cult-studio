@@ -8,7 +8,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const exe = path.resolve(process.env.APP_EXE ?? 'release/win-unpacked/CULT Live Studio.exe');
-const shots = process.env.SHOTS ?? 'e2e/shots';
+const shots = path.resolve(process.env.SHOTS ?? 'e2e/shots'); // absolute: app.setPath('userData') throws on relative paths
 const profile = path.join(shots, 'packaged-profile');
 fs.rmSync(profile, { recursive: true, force: true });
 

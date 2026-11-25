@@ -52,7 +52,7 @@ jobs:
           kill "$pid"; wait "$pid" || true
           # Renderer check: sign-in screen against the production API.
           APP_EXE="$BIN" EXPECT_SERVER=cult-api.up.railway.app SHOTS=/tmp/cult-shots node e2e/packaged.smoke.mjs
-          hdiutil detach /tmp/cult
+          hdiutil detach /tmp/cult || hdiutil detach -force /tmp/cult
       - run: shasum -a 256 release/CULT-Live-Studio.dmg
       - uses: actions/upload-artifact@v4
         with:
