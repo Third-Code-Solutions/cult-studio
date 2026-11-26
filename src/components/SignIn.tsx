@@ -89,32 +89,70 @@ export function SignIn({ apiBase, onSignedIn, onSettings }: Props) {
   );
 }
 
-const STATUS_COPY: Record<CreatorStatus['status'], { title: string; body: string }> = {
-  none: { title: 'This account isn’t a creator yet', body: 'CULT Live Studio is for approved creators. Apply for creator access in Creator Studio; it usually takes a few days.' },
-  pending: { title: 'Your creator application is in review', body: 'We’ll notify you when it’s approved. You can go LIVE from here as soon as it is.' },
-  rejected: { title: 'Your creator application wasn’t approved', body: 'You can review the reason and apply again in Creator Studio.' },
-  suspended: { title: 'Creator access is suspended', body: 'You can’t go LIVE while creator access is suspended. Check Creator Studio for details.' },
-  approved: { title: '', body: '' },
+type Block = NonNullable<CreatorStatus['blockedBy']>;
+const BLOCK_COPY: Record<Block | 'unknown', { title: string; body: string }> = {
+  RULES_ACCEPTANCE_REQUIRED: { title: 'One step before your first stream', body: 'Every CULT account can go LIVE. Confirm you’ll follow the broadcasting rules and you’re in.' },
+  BIRTH_DATE_REQUIRED: { title: 'Add your date of birth', body: 'Streamers must be 18 or older. Add your date of birth once in Creator Studio, then check again.' },
+  CREATOR_MIN_AGE: { title: 'You need to be 18 to stream', body: 'You can keep watching and chatting on CULT. Going LIVE opens on your 18th birthday.' },
+  CREATOR_SUSPENDED: { title: 'Streaming is suspended on this account', body: 'You can’t go LIVE while streaming is suspended. Check Creator Studio for details.' },
+  unknown: { title: 'We couldn’t check your channel', body: 'Check your connection and try again.' },
 };
 
-export function NotCreator({ me, status, onSignOut, onRefresh }: { me: Me; status: CreatorStatus; onSignOut: () => void; onRefresh: () => void }) {
-  const copy = STATUS_COPY[status.status];
+export function NotCreator({ me, status, onSignOut, onRefresh }: { me: Me; status: CreatorStatus | null; onSignOut: () => void; onRefresh: () => void }) {
+  const block: Block | 'unknown' = status?.blockedBy ?? 'unknown';
+  const copy = BLOCK_COPY[block];
+  const [agreed, setAgreed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const accept = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!status || !agreed) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await call(bridge().api('POST', '/v1/creator/apply', { acceptBroadcastRules: true, rulesVersion: status.rulesVersion }));
+      onRefresh();
+    } catch (x) {
+      setErr(errorText(x));
+      setBusy(false);
+    }
+  };
   return (
     <AuthShell>
       <img className="mark" src={wordmark} alt="CULT" />
       <div style={{ display: 'grid', gap: 6 }}>
         <h2>{copy.title}</h2>
         <p>{copy.body}</p>
-        {status.decisionReason && <div className="notice">Reason: {status.decisionReason}</div>}
+        {block === 'CREATOR_SUSPENDED' && status?.decisionReason && <div className="notice">Reason: {status.decisionReason}</div>}
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn primary" onClick={() => void bridge().openStudio('')}>
-          {status.status === 'none' || status.status === 'rejected' ? 'Apply in Creator Studio' : 'Open Creator Studio'} <Icon name="external" size={14} />
-        </button>
-        <button className="btn" onClick={onRefresh}>
-          <Icon name="refresh" size={14} /> Check again
-        </button>
-      </div>
+      {block === 'RULES_ACCEPTANCE_REQUIRED' ? (
+        <form onSubmit={accept} style={{ display: 'grid', gap: 12 }}>
+          <label className="check">
+            <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} required />
+            <span>I accept the CULT broadcasting rules{status?.rulesVersion ? ` (v${status.rulesVersion})` : ''} and the Community Guidelines.</span>
+          </label>
+          {err && <div className="notice error" role="alert">{err}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn primary" type="submit" disabled={!agreed || busy}>
+              {busy ? 'Saving…' : 'Start streaming'}
+            </button>
+            <button className="btn" type="button" onClick={() => void bridge().openStudio('')}>
+              Open Creator Studio <Icon name="external" size={14} />
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div style={{ display: 'flex', gap: 8 }}>
+          {block !== 'CREATOR_MIN_AGE' && block !== 'unknown' && (
+            <button className="btn primary" onClick={() => void bridge().openStudio('')}>
+              Open Creator Studio <Icon name="external" size={14} />
+            </button>
+          )}
+          <button className={block === 'unknown' ? 'btn primary' : 'btn'} onClick={onRefresh}>
+            <Icon name="refresh" size={14} /> Check again
+          </button>
+        </div>
+      )}
       <div className="auth-foot">
         <span>Signed in as @{me.handle}</span>
         <button className="link" onClick={onSignOut}>Sign out</button>

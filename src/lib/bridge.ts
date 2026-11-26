@@ -78,12 +78,16 @@ export interface Me {
   age: number | null;
 }
 
+/** GET /v1/creator/status. Every 18+ account can stream; `blockedBy` names the one step still missing. */
 export interface CreatorStatus {
   status: 'none' | 'pending' | 'approved' | 'rejected' | 'suspended';
+  canBroadcast: boolean;
+  blockedBy: 'CREATOR_SUSPENDED' | 'BIRTH_DATE_REQUIRED' | 'CREATOR_MIN_AGE' | 'RULES_ACCEPTANCE_REQUIRED' | null;
+  minAge: number;
+  rulesVersion: string;
   studioIngestApproved: boolean;
   guideCompleted: boolean;
   decisionReason: string | null;
-  applicationsOpen: boolean;
 }
 
 export interface Category {

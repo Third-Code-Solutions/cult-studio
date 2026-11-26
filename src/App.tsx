@@ -344,7 +344,7 @@ function Studio({ me, settings, onSignOut }: { me: Me; settings: Settings; onSig
   );
 }
 
-type Boot = { kind: 'loading' } | { kind: 'signin' } | { kind: 'gate'; me: Me; status: CreatorStatus } | { kind: 'studio'; me: Me };
+type Boot = { kind: 'loading' } | { kind: 'signin' } | { kind: 'gate'; me: Me; status: CreatorStatus | null } | { kind: 'studio'; me: Me };
 
 export function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -353,8 +353,8 @@ export function App() {
 
   const enter = useCallback(async (me: Me) => {
     const status = await api<CreatorStatus>('GET', '/v1/creator/status').catch(() => null);
-    if (status?.status === 'approved') setBoot({ kind: 'studio', me });
-    else setBoot({ kind: 'gate', me, status: status ?? { status: 'none', studioIngestApproved: false, guideCompleted: false, decisionReason: null, applicationsOpen: true } });
+    if (status?.canBroadcast) setBoot({ kind: 'studio', me });
+    else setBoot({ kind: 'gate', me, status }); // null: status unreachable, the gate offers "Check again"
   }, []);
 
   useEffect(() => {
