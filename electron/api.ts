@@ -108,6 +108,7 @@ const ROUTES: [string, RegExp][] = [
   ['GET', /^\/v1\/me$/],
   ['GET', /^\/v1\/config$/],
   ['GET', /^\/v1\/creator\/status$/],
+  ['POST', /^\/v1\/creator\/apply$/], // one-tick broadcasting-rules acceptance from the go-live gate
   ['GET', /^\/v1\/me\/notifications$/],
   ['GET', /^\/v1\/creator\/ingest-keys$/],
   ['POST', /^\/v1\/creator\/ingest-keys$/],
