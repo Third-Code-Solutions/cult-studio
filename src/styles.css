@@ -361,5 +361,5 @@ body.float-chat { height: 100vh; overflow: hidden; }
 .auth-card h2 { margin: 0; font-size: 22px; font-weight: 600; text-wrap: balance; }
 .auth-card p { margin: 0; color: var(--muted); text-wrap: pretty; }
 .auth-card form { display: grid; gap: 14px; }
-.auth-card .btn.primary { height: 38px; }
+.auth-card .btn { height: 38px; } /* primary and secondary side by side match */
 .auth-foot { display: flex; justify-content: space-between; color: var(--faint); font-size: 12px; }
