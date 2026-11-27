@@ -3,6 +3,7 @@ import { AddSource } from './components/AddSource';
 import { BottomBar } from './components/BottomBar';
 import { EndConfirm, GoalDialog, HelpDialog, LiveSetup, ObsPanel, RankingDialog, SettingsDialog, SummaryDialog } from './components/Dialogs';
 import { LeftPanel, type Layout, type Tool, type View } from './components/LeftPanel';
+import { FloatingChat } from './components/FloatingChat';
 import { RightPanel } from './components/RightPanel';
 import { NotCreator, SignIn } from './components/SignIn';
 import { FiltersDialog, ShapeDialog, SourceMenu, type SourceAction } from './components/SourceMenu';
@@ -226,6 +227,19 @@ function Studio({ me, settings, onSignOut }: { me: Me; settings: Settings; onSig
     return () => window.removeEventListener('pointerdown', off, true);
   }, [cropId]);
 
+  // Floating chat (always on top of games and other apps): the chat header button or Ctrl/Cmd+Shift+C.
+  const [floatChat, setFloatChat] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        setFloatChat((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const goLive = () => {
     if (setup.title.trim().length < 3 || !setup.rights) return setDialog('setup');
     void live.goLive(setup, comp.program[main]);
@@ -309,7 +323,8 @@ function Studio({ me, settings, onSignOut }: { me: Me; settings: Settings; onSig
             onContext={openMenu}
           />
         </div>
-        <RightPanel isLive={isLive} viewers={live.viewers} stats={live.stats} chat={live.chat} chatError={live.chatError} rtState={rtState} apiBase={settings.apiBase} onSend={live.sendChat} />
+        <RightPanel isLive={isLive} viewers={live.viewers} stats={live.stats} chat={live.chat} chatError={live.chatError} rtState={rtState} apiBase={settings.apiBase} onSend={live.sendChat} floating={floatChat} onToggleFloat={() => setFloatChat((v) => !v)} />
+        {floatChat && <FloatingChat isLive={isLive} chat={live.chat} chatError={live.chatError} rtState={rtState} onSend={live.sendChat} onClose={() => setFloatChat(false)} />}
       </div>
       <BottomBar phase={live.phase} liveAt={live.liveAt} health={live.health} canGoLive onGoLive={goLive} onEnd={() => setDialog('end')} onAudioError={setNotice} />
 

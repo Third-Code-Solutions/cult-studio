@@ -15,7 +15,7 @@ const require = createRequire(import.meta.url);
 const API = process.env.CULT_API_BASE ?? 'http://127.0.0.1:4000';
 const MTX = process.env.CULT_MTX_API ?? 'http://127.0.0.1:9997';
 const SHOTS = process.env.SHOTS ?? path.join(root, 'e2e', 'shots');
-const IDENT = process.env.CULT_E2E_USER ?? 'kitchenbeats@cult.dev';
+const IDENT = process.env.CULT_E2E_USER ?? 'luckyspin@cult.dev'; // a seeded slots creator who is not live in the seed
 const PASS = process.env.CULT_E2E_PASSWORD; // the seed password; never committed
 if (!PASS) throw new Error('Set CULT_E2E_PASSWORD (password of CULT_E2E_USER on the target API).');
 const IMAGE = path.join(root, 'e2e', 'demo-slots.jpg');
@@ -172,10 +172,11 @@ try {
   await page.locator('.row', { hasText: 'Scene 1' }).click();
   await page.getByRole('group', { name: 'Layout' }).getByRole('button', { name: 'Portrait' }).click();
 
-  // ── OBS panel (kitchenbeats has no studio ingest) ──
+  // ── OBS panel (encoder ingest is open to every creator who may go live, RUNBOOK OPS05; the seeded creator has no key yet) ──
   await page.getByRole('button', { name: 'Stream with OBS' }).click();
-  await page.getByText('Streaming software isn’t enabled').waitFor({ timeout: 10000 });
-  check('OBS panel explains STUDIO_NOT_APPROVED', true);
+  await page.getByRole('button', { name: 'Create stream key' }).waitFor({ timeout: 10000 });
+  const servers = await page.getByRole('dialog').locator('input').evaluateAll((els) => els.map((e) => e.value));
+  check('OBS panel shows the servers and offers a stream key', servers.some((v) => v.startsWith('rtmp://')), servers.join(' | '));
   await shot('09-obs-panel');
   await page.getByRole('button', { name: 'Done' }).click();
 
@@ -215,6 +216,29 @@ try {
   await page.waitForTimeout(6000); // let stats + encoder health arrive
   const chatAcked = (await page.locator('.msg.pending').count()) === 0;
   check('host chat message delivered', chatAcked);
+
+  // ── Floating chat: always-on-top window fed by the studio's own chat state ──
+  const [chatWin] = await Promise.all([app.waitForEvent('window'), page.getByRole('button', { name: 'Floating chat' }).click()]);
+  await chatWin.locator('.msg', { hasText: 'Hello from the desktop studio' }).waitFor({ timeout: 5000 });
+  const tops = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.getTitle() === 'CULT LIVE chat').map((w) => w.isAlwaysOnTop()));
+  check('floating chat opens always on top', tops.length === 1 && tops[0] === true, JSON.stringify(tops));
+  const viewer = await fetch(`${API}/v1/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ identifier: 'crew@cult.dev', password: PASS }) }).then((r) => r.json());
+  const posted = await fetch(`${API}/v1/streams/${streamId}/chat`, { method: 'POST', headers: { authorization: `Bearer ${viewer.token}`, 'content-type': 'application/json' }, body: JSON.stringify({ clientMsgId: `e2e-float-${Date.now()}`, body: 'Viewer hello for the floating chat' }) });
+  const seen = await chatWin.locator('.msg', { hasText: 'Viewer hello for the floating chat' }).waitFor({ timeout: 10000 }).then(() => true, () => false);
+  check('floating chat shows a viewer message in real time', posted.ok && seen, `post ${posted.status}`);
+  await chatWin.getByLabel('Chat message').fill('Reply from the floating chat');
+  await chatWin.getByRole('button', { name: 'Send' }).click();
+  const docked = await page.locator('.panel.right .msg', { hasText: 'Reply from the floating chat' }).waitFor({ timeout: 10000 }).then(() => true, () => false);
+  check('host reply from floating chat reaches the docked chat', docked);
+  await chatWin.screenshot({ path: path.join(SHOTS, 'desktop-10b-floating-chat.png') });
+  await chatWin.getByRole('button', { name: 'Close floating chat' }).click();
+  await page.waitForTimeout(500);
+  check('floating chat closes and the toggle resets', (await page.getByRole('button', { name: 'Floating chat' }).getAttribute('aria-pressed')) === 'false');
+  const [again] = await Promise.all([app.waitForEvent('window'), page.keyboard.press('Control+Shift+C')]);
+  await page.keyboard.press('Control+Shift+C');
+  await page.waitForTimeout(500);
+  check('Ctrl+Shift+C opens and closes floating chat', again.isClosed());
+  if (viewer.token) await fetch(`${API}/v1/auth/logout`, { method: 'POST', headers: { authorization: `Bearer ${viewer.token}` } });
   const stat = await page.getByLabel('Performance').innerText();
   const vis = await page.evaluate(() => document.visibilityState);
   check('stats line shows upload/fps', /Upload\s+[\d,]+ kbps/.test(stat) && /FPS\s+\d+/.test(stat), `${stat.replace(/\s+/g, ' ')} (page ${vis})`);

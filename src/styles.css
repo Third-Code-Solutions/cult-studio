@@ -295,6 +295,15 @@ input[type='range'] { accent-color: var(--text); width: 84px; height: 16px; }
 .msg.pending { opacity: 0.55; }
 .msg.gift { display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: var(--r-control); background: #221f0b; color: #fff3a3; }
 .composer { display: flex; gap: 6px; padding: 10px 14px 12px; border-top: 1px solid var(--line); }
+/* Chat header: title, connection state, then actions (floating toggle / close) pushed right. */
+.chat-h { padding: 12px 14px 0; margin-bottom: 0; justify-content: flex-start; }
+.chat-h > .icon-btn { margin-left: auto; width: 28px; height: 28px; }
+.float-toggle.on { color: var(--yellow); }
+/* Floating chat window: the whole body is the chat; its header drags the frameless window. */
+body.float-chat { height: 100vh; overflow: hidden; }
+.float-root { height: 100vh; display: flex; flex-direction: column; }
+.float-root .chat-h { -webkit-app-region: drag; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.float-root .chat-h button, .float-root .composer { -webkit-app-region: no-drag; }
 .composer .input { height: 34px; }
 .rt-state { font-size: 12px; color: var(--faint); display: flex; align-items: center; gap: 6px; }
 .rt-state i { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }

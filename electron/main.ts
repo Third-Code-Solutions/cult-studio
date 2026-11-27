@@ -195,6 +195,28 @@ function projectorOptions(frameName: string): BrowserWindowConstructorOptions | 
   return { ...base, ...display.bounds, frame: false, fullscreen: true };
 }
 
+/** The floating LIVE chat (src/components/FloatingChat.tsx): small, frameless, bottom-right of the primary display. */
+const CHAT_FRAME = 'cult-chat';
+function chatWindowOptions(): BrowserWindowConstructorOptions {
+  const { workArea } = screen.getPrimaryDisplay();
+  const width = 360;
+  const height = 560;
+  return {
+    width,
+    height,
+    minWidth: 260,
+    minHeight: 240,
+    x: workArea.x + workArea.width - width - 24,
+    y: workArea.y + workArea.height - height - 24,
+    frame: false,
+    alwaysOnTop: true,
+    backgroundColor: '#09090b',
+    title: 'CULT LIVE chat',
+    autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  };
+}
+
 function createWindow(): void {
   win = new BrowserWindow({
     width: 1480,
@@ -230,11 +252,16 @@ function createWindow(): void {
     for (const w of BrowserWindow.getAllWindows()) w.close(); // projectors go with the studio
   });
   win.webContents.setWindowOpenHandler(({ url, frameName }) => {
-    const options = url === 'about:blank' ? projectorOptions(frameName) : null; // only our own projector windows
+    // only our own child windows: projectors and the floating chat
+    const options = url !== 'about:blank' ? null : frameName === CHAT_FRAME ? chatWindowOptions() : projectorOptions(frameName);
     return options ? { action: 'allow', overrideBrowserWindowOptions: options } : { action: 'deny' };
   });
-  win.webContents.on('did-create-window', (child) => {
+  win.webContents.on('did-create-window', (child, { frameName }) => {
     child.removeMenu();
+    if (frameName === CHAT_FRAME) {
+      child.setAlwaysOnTop(true, 'screen-saver'); // above borderless-fullscreen games too
+      if (isMac) child.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    }
     child.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     child.webContents.on('will-navigate', (e) => e.preventDefault());
   });
